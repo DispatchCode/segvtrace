@@ -14,7 +14,13 @@
 #define MAX_LBR_ENTRIES 32
 #define LOG_FILE_NAME   "sigsegv-events.log"
 
+#define for_each(i, cond) for(int (i)=0; (i) < cond; (i)++)
+#define for_each_cpu(cpu) for_each(cpu, get_nprocs_conf())
+
 static volatile sig_atomic_t running = 1;
+
+// perf_event_open fd for every CPUs
+static int *cpus_fd;
 
 struct user_regs_t {
     unsigned long long rip;
@@ -50,6 +56,12 @@ void setup_global_lbr() {
     int num_cpus = get_nprocs_conf();
     printf("[*] Activating LBR hardware on %d CPUs...\n", num_cpus);
 
+    cpus_fd = malloc(sizeof(int) * num_cpus);
+    if (!cpus_fd) {
+        fprintf(stderr, "Unable to allocate memory for %d CPUs. Abort.", num_cpus);
+        return;
+    }
+
     struct perf_event_attr pe = {0};
     pe.type = PERF_TYPE_HARDWARE;
     pe.size = sizeof(struct perf_event_attr);
@@ -60,7 +72,9 @@ void setup_global_lbr() {
     pe.exclude_kernel = 1; 
     pe.exclude_hv = 1;
 
-    for (int cpu = 0; cpu < num_cpus; cpu++) {
+    int cpu;
+
+    for_each_cpu(cpu) {
         //                                          pid     group_fs, flags
         int fd = syscall(__NR_perf_event_open, &pe, -1, cpu, -1, 0);
 
@@ -71,6 +85,8 @@ void setup_global_lbr() {
 
         ioctl(fd, PERF_EVENT_IOC_RESET, 0);
         ioctl(fd, PERF_EVENT_IOC_ENABLE, 0);
+
+        cpus_fd[cpu] = fd;
     }
 }
 
@@ -102,7 +118,8 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
     LOG("\n--- LBR Branch History (Last %d Jumps) ---\n", e->lbr_count);
     // e->lbr_count it is enough in theory, the other check is just
     // to enforce the limit
-    for (int i = 0; i < e->lbr_count && i < MAX_LBR_ENTRIES; i++) {
+    int i;
+    for_each(i, e->lbr_count && i < MAX_LBR_ENTRIES) {
         // Skip empty entries
         if (e->lbr[i].from == 0 && e->lbr[i].to == 0) continue;
 
@@ -118,6 +135,18 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
 
 void sigint_handler(int dummy) {
     running = 0;
+}
+
+void clean() {
+    if (!cpus_fd) return;
+
+    int cpu;
+
+    for_each_cpu(cpu) {
+       ioctl(cpus_fd[cpu], PERF_EVENT_IOC_DISABLE, 0);
+    }
+
+    free(cpus_fd);
 }
 
 int main() {
@@ -146,6 +175,8 @@ int main() {
     }
 
     printf("\b\b[*] Exiting the program...\n");
+
+    clean();
 
     return 0;
 }
