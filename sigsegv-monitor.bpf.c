@@ -7,7 +7,7 @@
 //   cat /sys/kernel/tracing/trace
 // will show the bpf_printk() output
 
-#define MAX_LBR_ENTRIES 16
+#define MAX_LBR_ENTRIES 32
 
 struct user_regs_t {
     u64 rip;
@@ -28,8 +28,24 @@ struct user_regs_t {
     u64 r14;
     u64 r15;
     u64 flags;
-	u64 cr2;
+    u64 cr2;
+    u64 cr2_fault;
 };
+
+struct trace_event_raw_page_fault_user {
+    struct trace_entry ent;
+    unsigned long address;
+    unsigned long ip;
+    unsigned long error_code;
+    char __data[0];
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1024);
+    __type(key, u32);
+    __type(value, u64);
+} tgid_cr2 SEC(".maps");
 
 struct event_t {
     u32 pid;
@@ -61,6 +77,7 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     struct pt_regs *regs = NULL;
     struct event_t *event;
     u32 key = 0;
+    u32 tgid;
 
     if (ctx->sig != 11)
         return 0;
@@ -96,6 +113,13 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
         event->regs.flags = BPF_CORE_READ(regs, flags);
         
 		event->regs.cr2 = BPF_CORE_READ(task, thread.cr2);
+        tgid = task->tgid;
+        u64 *cr2 = bpf_map_lookup_elem(&tgid_cr2, &tgid);
+
+        if (cr2) {
+            event->regs.cr2_fault = *cr2;
+            bpf_map_delete_elem(&tgid_cr2, &tgid);
+        }
 	}
 
     long ret = bpf_get_branch_snapshot(&event->lbr, sizeof(event->lbr), 0);
@@ -105,6 +129,20 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
         // BPF_F_CURRENT_CPU -> "index of current core should be used"
         bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(*event));
     }
+ 
+    return 0;
+}
+
+
+SEC("tracepoint/exceptions/page_fault_user")
+int trace_page_fault(struct trace_event_raw_page_fault_user *ctx) {
+    u64 cr2;
+    u32 tgid;
+
+    cr2  = ctx->address;
+    tgid = bpf_get_current_pid_tgid() >> 32;
+
+    bpf_map_update_elem(&tgid_cr2, &tgid, &cr2, BPF_ANY);
 
     return 0;
 }

@@ -42,6 +42,7 @@ struct user_regs_t {
     unsigned long long r15;
     unsigned long long flags;
     unsigned long long cr2;
+    unsigned long long cr2_fault;
 };
 
 struct event_t {
@@ -113,7 +114,7 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
     LOG("R14: 0x%016llx  R15: 0x%016llx\n", e->regs.r14, e->regs.r15);
 
     LOG("\nRIP: 0x%016llx  FLG: 0x%016llx\n", e->regs.rip, e->regs.flags);
-    LOG("CR2: 0x%016llx\n", e->regs.cr2);
+    LOG("CR2: 0x%016llx, #PF CR2: %016llx\n", e->regs.cr2, e->regs.cr2_fault);
  
     LOG("\n--- LBR Branch History (Last %d Jumps) ---\n", e->lbr_count);
     // e->lbr_count it is enough in theory, the other check is just
