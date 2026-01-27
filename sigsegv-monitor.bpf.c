@@ -2,6 +2,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
+#include "sigsegv-monitor.h"
 
 // By default is commented: a lot of #PF events are hit
 // so enable only if it is acceptable.
@@ -10,31 +11,6 @@
 // if /sys/kernel/tracing/trace_on  is set to 1,
 //   cat /sys/kernel/tracing/trace
 // will show the bpf_printk() output
-
-#define MAX_LBR_ENTRIES 32
-
-struct user_regs_t {
-    u64 rip;
-    u64 rsp;
-    u64 rax;
-    u64 rbx;
-    u64 rcx;
-    u64 rdx;
-    u64 rsi;
-    u64 rdi;
-    u64 rbp;
-    u64 r8;
-    u64 r9;
-    u64 r10;
-    u64 r11;
-    u64 r12;
-    u64 r13;
-    u64 r14;
-    u64 r15;
-    u64 flags;
-    u64 cr2;
-    u64 cr2_fault;
-};
 
 #ifdef TRACE_PF_CR2
 struct trace_event_raw_page_fault_user {
@@ -52,14 +28,6 @@ struct {
     __type(value, u64);
 } tgid_cr2 SEC(".maps");
 #endif
-
-struct event_t {
-    u32 pid;
-    char comm[16];
-    u32 lbr_count;
-    struct user_regs_t regs;
-    struct perf_branch_entry lbr[MAX_LBR_ENTRIES];
-};
 
 // Output map (for user space)
 struct {

@@ -11,6 +11,12 @@
 #include <bpf/libbpf.h>
 #include "sigsegv-monitor.skel.h"
 
+// TODO: how to do this properly?
+#include <linux/types.h>
+typedef __u32 u32;
+typedef __u64 u64;
+#include "sigsegv-monitor.h"
+
 #define MAX_LBR_ENTRIES 32
 
 #define for_each(i, cond) for(int (i)=0; (i) < cond; (i)++)
@@ -20,37 +26,6 @@ static volatile sig_atomic_t running = 1;
 
 // perf_event_open fd for every CPUs
 static int *cpus_fd;
-
-struct user_regs_t {
-    unsigned long long rip;
-    unsigned long long rsp;
-    unsigned long long rax;
-    unsigned long long rbx;
-    unsigned long long rcx;
-    unsigned long long rdx;
-    unsigned long long rsi;
-    unsigned long long rdi;
-    unsigned long long rbp;
-    unsigned long long r8;
-    unsigned long long r9;
-    unsigned long long r10;
-    unsigned long long r11;
-    unsigned long long r12;
-    unsigned long long r13;
-    unsigned long long r14;
-    unsigned long long r15;
-    unsigned long long flags;
-    unsigned long long cr2;
-    unsigned long long cr2_fault;
-};
-
-struct event_t {
-    unsigned int pid;
-    char comm[16];
-    unsigned int lbr_count;
-    struct user_regs_t regs;
-    struct perf_branch_entry lbr[MAX_LBR_ENTRIES];
-};
 
 // TODO: do we need this to enable LBR? We take the samples from within the eBPF program...
 void setup_global_lbr() {
