@@ -2,13 +2,24 @@
 
 Trace `tracepoint/signal/signal_generate` waiting SIGSEGV and print LBR (Last Branch Record) and registers.
 
-## Compile
+## Build
 
-bpftool is used in order to generate vmlinux.h and the skeleton, so `make` must be run with sudo (as root).
+Dependencies:
+```
+zypper install \
+	bpftool \
+	libbpf-devel \
+	make \
+	clang17
+```
 
-`sudo make`
+`bpftool` is in `sbin`; therefore `make` must be run as root, or you need to add `sbin` to `PATH`.
+The `pathmake` is a `make` wrapper which deals with `sbin`.
 
-and run with:
+
+## Run
+
+To load the eBPF program, you need some capabilities, hence:
 
 `sudo ./sigsegv-monitor`
 

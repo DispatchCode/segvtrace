@@ -1,0 +1,8 @@
+#!/bin/bash
+
+set -eux
+
+# for bpftool
+export PATH=/usr/sbin:$PATH
+
+make $*
