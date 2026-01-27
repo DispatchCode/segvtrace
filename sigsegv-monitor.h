@@ -29,6 +29,7 @@ struct user_regs_t {
 };
 
 struct event_t {
+    int si_code;
     u32 tgid; // the PROCESS id!
     char tgleader_comm[16]; // the PROCESS name
     u32 pid; // the THREAD id!

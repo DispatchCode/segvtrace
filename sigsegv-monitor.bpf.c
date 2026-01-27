@@ -59,6 +59,8 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     if (!event)
         return 0; // Should never happen
 
+    event->si_code = ctx->code;
+
     task = bpf_get_current_task_btf();
     event->tgid = task->tgid;
     event->pid = task->pid;
