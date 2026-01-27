@@ -117,7 +117,7 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
         event->regs.r14 = BPF_CORE_READ(regs, r14);
         event->regs.r15 = BPF_CORE_READ(regs, r15);
         event->regs.flags = BPF_CORE_READ(regs, flags);
-        
+
         event->regs.cr2 = BPF_CORE_READ(task, thread.cr2);
         event->regs.cr2_fault = -1;
 
@@ -142,7 +142,7 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     }
     // BPF_F_CURRENT_CPU -> "index of current core should be used"
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(*event));
- 
+
     return 0;
 }
 
