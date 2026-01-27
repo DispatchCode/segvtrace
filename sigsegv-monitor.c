@@ -30,7 +30,7 @@ static int *cpus_fd;
 // TODO: do we need this to enable LBR? We take the samples from within the eBPF program...
 void setup_global_lbr() {
     int num_cpus = get_nprocs_conf();
-    printf("[*] Activating LBR hardware on %d CPUs...\n", num_cpus);
+    fprintf(stderr, "[*] Activating LBR hardware on %d CPUs...\n", num_cpus);
 
     cpus_fd = malloc(sizeof(int) * num_cpus);
     if (!cpus_fd) {
