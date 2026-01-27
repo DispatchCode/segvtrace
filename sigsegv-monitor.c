@@ -9,10 +9,9 @@
 #include <linux/perf_event.h>
 #include <sys/ioctl.h>
 #include <bpf/libbpf.h>
-#include "sigsegv-monitor.skel.h" 
+#include "sigsegv-monitor.skel.h"
 
 #define MAX_LBR_ENTRIES 32
-#define LOG_FILE_NAME   "sigsegv-events.log"
 
 #define for_each(i, cond) for(int (i)=0; (i) < cond; (i)++)
 #define for_each_cpu(cpu) for_each(cpu, get_nprocs_conf())
@@ -67,11 +66,11 @@ void setup_global_lbr() {
     struct perf_event_attr pe = {0};
     pe.type = PERF_TYPE_HARDWARE;
     pe.size = sizeof(struct perf_event_attr);
-    pe.config = PERF_COUNT_HW_CPU_CYCLES; 
-    pe.sample_type = PERF_SAMPLE_BRANCH_STACK; 
-    pe.branch_sample_type = PERF_SAMPLE_BRANCH_ANY; 
-    pe.disabled = 1; 
-    pe.exclude_kernel = 1; 
+    pe.config = PERF_COUNT_HW_CPU_CYCLES;
+    pe.sample_type = PERF_SAMPLE_BRANCH_STACK;
+    pe.branch_sample_type = PERF_SAMPLE_BRANCH_ANY;
+    pe.disabled = 1;
+    pe.exclude_kernel = 1;
     pe.exclude_hv = 1;
 
     for_each_cpu(cpu) {
@@ -152,12 +151,12 @@ void clean() {
 int main() {
     struct sigsegv_monitor_bpf *skel;
     struct perf_buffer *pb = NULL;
-    
+
     // Stop running if CTRL+C is entered
     signal(SIGINT, sigint_handler);
 
     // Enable LBR: seems it is working that way...
-	setup_global_lbr();
+    setup_global_lbr();
 
     skel = sigsegv_monitor_bpf__open();
     if (!skel) return 1;
