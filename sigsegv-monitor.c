@@ -67,38 +67,47 @@ void setup_global_lbr() {
 void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
     struct event_t *e = data;
 
-    printf("\n------------ SIGSEGV Detected ----------------\n");
-    printf("CPU: %d | PID: %d | PCOMM: %s | TID: %d | TCOMM: %s\n", cpu, e->tgid, e->tgleader_comm, e->pid, e->comm);
+    printf("{\"cpu\":%d,", cpu);
+    printf("\"process\":{\"pid\":%d,\"comm\":\"%s\"},", e->tgid, e->tgleader_comm);
+    printf("\"thread\":{\"tid\":%d,\"comm\":\"%s\"},", e->pid, e->comm);
+    printf("\"registers\":{");
+    printf("\"rax\":\"0x%016llx\",", e->regs.rax);
+    printf("\"rbx\":\"0x%016llx\",", e->regs.rbx);
+    printf("\"rcx\":\"0x%016llx\",", e->regs.rcx);
+    printf("\"rdx\":\"0x%016llx\",", e->regs.rdx);
+    printf("\"rsi\":\"0x%016llx\",", e->regs.rsi);
+    printf("\"rdi\":\"0x%016llx\",", e->regs.rdi);
+    printf("\"rbp\":\"0x%016llx\",", e->regs.rbp);
+    printf("\"rsp\":\"0x%016llx\",", e->regs.rsp);
+    printf("\"r8\":\"0x%016llx\",", e->regs.r8);
+    printf("\"r9\":\"0x%016llx\",", e->regs.r9);
+    printf("\"r10\":\"0x%016llx\",", e->regs.r10);
+    printf("\"r11\":\"0x%016llx\",", e->regs.r11);
+    printf("\"r12\":\"0x%016llx\",", e->regs.r12);
+    printf("\"r13\":\"0x%016llx\",", e->regs.r13);
+    printf("\"r14\":\"0x%016llx\",", e->regs.r14);
+    printf("\"r15\":\"0x%016llx\",", e->regs.r15);
+    printf("\"rip\":\"0x%016llx\",", e->regs.rip);
+    printf("\"flags\":\"0x%016llx\",", e->regs.flags);
+    printf("\"cr2\":\"0x%016llx\",", e->regs.cr2);
+    if (e->regs.cr2_fault != (u64)-1)
+        printf("\"cr2_fault\":\"0x%016llx\"", e->regs.cr2_fault);
+    else
+        printf("\"cr2_fault\":null");
+    printf("},");
 
-    printf("\n--- Registers ---\n");
-    printf("RAX: 0x%016llx  RBX: 0x%016llx\n", e->regs.rax, e->regs.rbx);
-    printf("RCX: 0x%016llx  RDX: 0x%016llx\n", e->regs.rcx, e->regs.rdx);
-    printf("RSI: 0x%016llx  RDI: 0x%016llx\n", e->regs.rsi, e->regs.rdi);
-    printf("RBP: 0x%016llx  RSP: 0x%016llx\n", e->regs.rbp, e->regs.rsp);
-    printf("R8 : 0x%016llx  R9 : 0x%016llx\n", e->regs.r8,  e->regs.r9);
-    printf("R10: 0x%016llx  R11: 0x%016llx\n", e->regs.r10, e->regs.r11);
-    printf("R12: 0x%016llx  R13: 0x%016llx\n", e->regs.r12, e->regs.r13);
-    printf("R14: 0x%016llx  R15: 0x%016llx\n", e->regs.r14, e->regs.r15);
-
-    printf("\nRIP: 0x%016llx  FLG: 0x%016llx\n", e->regs.rip, e->regs.flags);
-    printf("CR2: 0x%016llx ", e->regs.cr2);
-
-     if (e->regs.cr2_fault != -1)
-       printf("#PF CR2: %016llx", e->regs.cr2_fault);
-
-    printf("\n\n--- LBR Branch Record (Last %d Jumps) ---\n", e->lbr_count);
-    // e->lbr_count it is enough in theory, the other check is just
-    // to enforce the limit
-    for_each(i, e->lbr_count && i < MAX_LBR_ENTRIES) {
-        // Skip empty entries
-        if (e->lbr[i].from == 0 && e->lbr[i].to == 0) continue;
-
-        printf("#%-2d: 0x%llx  ->  0x%llx\n",
-            i,
-            (unsigned long long)e->lbr[i].from,
-            (unsigned long long)e->lbr[i].to);
+    printf("\"lbr\":[");
+    int lbr_limit = (e->lbr_count < MAX_LBR_ENTRIES) ? e->lbr_count : MAX_LBR_ENTRIES;
+    for_each(i, lbr_limit) {
+        if (i > 0) printf(",");
+        if (e->lbr[i].from == 0 && e->lbr[i].to == 0)
+            printf("null");
+        else
+            printf("{\"from\":\"0x%llx\",\"to\":\"0x%llx\"}",
+                (unsigned long long)e->lbr[i].from,
+                (unsigned long long)e->lbr[i].to);
     }
-    printf("--------------------------------------------\n");
+    printf("]}\n");
 }
 
 void sigint_handler(int dummy) {
