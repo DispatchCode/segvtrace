@@ -84,7 +84,6 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     struct event_t *event;
     u32 key = 0;
 
-    bpf_printk("rcvd sig %d", ctx->sig);
     if (ctx->sig != 11)
         return 0;
 
