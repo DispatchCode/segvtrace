@@ -89,6 +89,8 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
     printf("\"r15\":\"0x%016llx\",", e->regs.r15);
     printf("\"rip\":\"0x%016llx\",", e->regs.rip);
     printf("\"flags\":\"0x%016llx\",", e->regs.flags);
+    printf("\"trapno\":\"0x%016llx\",", e->regs.trapno);
+    printf("\"err\":\"0x%016llx\",", e->regs.err);
     printf("\"cr2\":\"0x%016llx\",", e->regs.cr2);
     if (e->regs.cr2_fault != (u64)-1)
         printf("\"cr2_fault\":\"0x%016llx\"", e->regs.cr2_fault);

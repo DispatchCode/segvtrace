@@ -22,6 +22,8 @@ struct user_regs_t {
     u64 r14;
     u64 r15;
     u64 flags;
+    u64 trapno;
+    u64 err;
     u64 cr2;
     u64 cr2_fault;
 };

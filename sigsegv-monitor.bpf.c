@@ -86,6 +86,8 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
         event->regs.r14 = BPF_CORE_READ(regs, r14);
         event->regs.r15 = BPF_CORE_READ(regs, r15);
         event->regs.flags = BPF_CORE_READ(regs, flags);
+        event->regs.trapno = BPF_CORE_READ(regs, orig_ax); // TODO: looks wrong!!
+        event->regs.err = BPF_CORE_READ(task, thread.error_code);
 
         event->regs.cr2 = BPF_CORE_READ(task, thread.cr2);
         event->regs.cr2_fault = -1;
