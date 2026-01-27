@@ -134,12 +134,14 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
 
     // TODO: shouldn't this be at the top of the function?
     long ret = bpf_get_branch_snapshot(&event->lbr, sizeof(event->lbr), 0);
-    
     if (ret > 0) {
         event->lbr_count = ret / sizeof(struct perf_branch_entry);
-        // BPF_F_CURRENT_CPU -> "index of current core should be used"
-        bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(*event));
+    } else {
+        // on VMs, LBR might not be available
+        event->lbr_count = 0;
     }
+    // BPF_F_CURRENT_CPU -> "index of current core should be used"
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(*event));
  
     return 0;
 }
