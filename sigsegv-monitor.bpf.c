@@ -91,14 +91,14 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     if (!event)
         return 0; // Should never happen
 
-	task = bpf_get_current_task_btf();
+    task = bpf_get_current_task_btf();
     event->pid = task->pid;
-	bpf_probe_read_kernel_str(&event->comm, sizeof(event->comm), &task->comm);
+    bpf_probe_read_kernel_str(&event->comm, sizeof(event->comm), &task->comm);
 
-	regs = (struct pt_regs *)bpf_task_pt_regs(task);
+    regs = (struct pt_regs *)bpf_task_pt_regs(task);
 
-	if (regs) {
-		event->regs.rip = BPF_CORE_READ(regs, ip);
+    if (regs) {
+        event->regs.rip = BPF_CORE_READ(regs, ip);
         event->regs.rsp = BPF_CORE_READ(regs, sp);
         event->regs.rax = BPF_CORE_READ(regs, ax);
         event->regs.rbx = BPF_CORE_READ(regs, bx);
@@ -117,8 +117,8 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
         event->regs.r15 = BPF_CORE_READ(regs, r15);
         event->regs.flags = BPF_CORE_READ(regs, flags);
         
-		event->regs.cr2 = BPF_CORE_READ(task, thread.cr2);
-		event->regs.cr2_fault = -1;
+        event->regs.cr2 = BPF_CORE_READ(task, thread.cr2);
+        event->regs.cr2_fault = -1;
 
         #ifdef TRACE_PF_CR2
         u32 tgid = task->tgid;
@@ -129,7 +129,7 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
             bpf_map_delete_elem(&tgid_cr2, &tgid);
         }
         #endif
-	}
+    }
 
     long ret = bpf_get_branch_snapshot(&event->lbr, sizeof(event->lbr), 0);
     
