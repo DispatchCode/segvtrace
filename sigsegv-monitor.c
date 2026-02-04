@@ -68,6 +68,7 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
     struct event_t *e = data;
 
     printf("{\"cpu\":%d,", cpu);
+    printf("\"tai\":%llu,", e->tai);
     printf("\"process\":{\"pid\":%d,\"comm\":\"%s\"},", e->tgid, e->tgleader_comm);
     printf("\"thread\":{\"tid\":%d,\"comm\":\"%s\"},", e->pid, e->comm);
     printf("\"si_code\":%d,", e->si_code);

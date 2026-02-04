@@ -60,6 +60,7 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
         return 0; // Should never happen
 
     event->si_code = ctx->code;
+    event->tai = bpf_ktime_get_tai_ns();
 
     task = bpf_get_current_task_btf();
     event->tgid = task->tgid;
