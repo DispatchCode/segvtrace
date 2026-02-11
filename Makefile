@@ -27,6 +27,8 @@ LIBS := -lbpf -lelf -lz
 
 all: $(APP)
 
+.DELETE_ON_ERROR:
+
 $(VMLINUX):
 	@echo "  GEN     $@"
 	$(BPFTOOL) btf dump file /sys/kernel/btf/vmlinux format c > $@

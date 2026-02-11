@@ -2,15 +2,33 @@
 
 Trace `tracepoint/signal/signal_generate` waiting SIGSEGV and print LBR (Last Branch Record) and registers.
 
-## Compile
+## Build
 
-bpftool is used in order to generate vmlinux.h and the skeleton, so `make` must be run with sudo (as root).
+Dependencies:
+```
+zypper install \
+	bpftool \
+	libbpf-devel \
+	make \
+	clang17
+```
 
-`sudo make`
+`bpftool` is in `sbin`; therefore `make` must be run as root, or you need to add `sbin` to `PATH`.
+The `pathmake` is a `make` wrapper which deals with `sbin`.
 
-and run with:
+
+## Run
+
+To load the eBPF program, you need some capabilities, hence:
 
 `sudo ./sigsegv-monitor`
+
+This will produce output on stdout,
+so you might want to redirect that to a file.
+It will print warnings and errors on stderr.
+
+The output is a bunch of JSON objects, without enclosing `[]` array brackets.
+
 
 ## Example
 
@@ -23,39 +41,7 @@ Monitoring for SIGSEGV... (Ctrl+C to stop)
 *Running a user-space application that trigger a SIGSEGV, produces...*
 
 ```
------------- SIGSEGV Detected ----------------
-PID: 325439 | COMM: x64id
-
---- Registers ---
-RAX: 0x000000000040419d  RBX: 0x0000000000000000
-RCX: 0x00007ff933df702c  RDX: 0x0000000000000000
-RSI: 0x00007ffd93458354  RDI: 0x00007ff933df76a0
-RBP: 0x00007ffd934583a0  RSP: 0x00007ffd93458380
-R8 : 0x00007ff933df7038  R9 : 0x00007ff933df70a0
-R10: 0x0000000000000000  R11: 0x0000000000000202
-R12: 0x0000000000000001  R13: 0x00007ff933e6d000
-R14: 0x00007ffd93458578  R15: 0x0000000000407df0
-
-RIP: 0x0000000000404223  FLG: 0x0000000000010202
-CR2: 0x000000000040419d
-
---- LBR Branch History (Last 16 Jumps) ---
-#0 : 0x7ff933c48301  ->  0x404218
-#1 : 0x7ff933c485b9  ->  0x7ff933c482fd
-#2 : 0x7ff933c485d6  ->  0x7ff933c485a5
-#3 : 0x7ff933c4878c  ->  0x7ff933c485d1
-#4 : 0x7ff933c48737  ->  0x7ff933c48758
-#5 : 0x7ff933c485cc  ->  0x7ff933c4871e
-#6 : 0x7ff933c4856f  ->  0x7ff933c485c0
-#7 : 0x7ff933c482f8  ->  0x7ff933c4854e
-#8 : 0x401130  ->  0x7ff933c482ee
-#9 : 0x404213  ->  0x401130
-#10: 0x7ff933c5ef26  ->  0x404213
-#11: 0x7ff933c6a9a8  ->  0x7ff933c5ef0f
-#12: 0x7ff933c6ab09  ->  0x7ff933c6a980
-#13: 0x7ff933c5f3ee  ->  0x7ff933c6ab09
-#14: 0x7ff933c5f962  ->  0x7ff933c5f3be
-#15: 0x7ff933c5f77e  ->  0x7ff933c5f959
---------------------------------------------
+{"cpu":33,"process":{"pid":6897,"comm":"bash"},"thread":{"tid":6897,"comm":"bash"},"si_code":0,"registers":{"rax":"0xffffffffffffffda","rbx":"0x0000000000001b1e","rcx":"0x00007f08fd257b47","rdx":"0x000055f0fff18a50","rsi":"0x000000000000000b","rdi":"0x00000000ffffe4e2","rbp":"0x000000000000000b","rsp":"0x00007fff61a6ab78","r8":"0x0000000000000008","r9":"0x000055f0fff18a50","r10":"0x00007f08fd20bfb0","r11":"0x0000000000000297","r12":"0x00007fff61a6ac10","r13":"0x000055f100007630","r14":"0x00007fff61a6ad80","r15":"0x0000000000001b1e","rip":"0x00007f08fd257b47","flags":"0x0000000000000297","trapno":"0x0000000000000000","err":"0x0000000000000000","cr2":"0x0000000000000000","cr2_fault":null},"lbr":[]}
+{"cpu":35,"process":{"pid":6942,"comm":"bash"},"thread":{"tid":6942,"comm":"bash"},"si_code":0,"registers":{"rax":"0xffffffffffffffda","rbx":"0x000055f0fff39540","rcx":"0x00007f08fd257b47","rdx":"0x0000000000000000","rsi":"0x000000000000000b","rdi":"0x0000000000001b1e","rbp":"0x0000000000000020","rsp":"0x00007fff61a6ae48","r8":"0x00007fff61a6ad80","r9":"0x0000000000000007","r10":"0x00007f08fd217380","r11":"0x0000000000000206","r12":"0x000055f0fff3e3b0","r13":"0x0000000000000000","r14":"0x0000000000000000","r15":"0x0000000000000001","rip":"0x00007f08fd257b47","flags":"0x0000000000000206","trapno":"0x0000000000000000","err":"0x0000000000000000","cr2":"0x0000000000000000","cr2_fault":null},"lbr":[]}
 
 ```

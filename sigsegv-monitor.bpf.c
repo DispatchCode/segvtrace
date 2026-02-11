@@ -2,6 +2,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_tracing.h>
+#include "sigsegv-monitor.h"
 
 // By default is commented: a lot of #PF events are hit
 // so enable only if it is acceptable.
@@ -10,31 +11,6 @@
 // if /sys/kernel/tracing/trace_on  is set to 1,
 //   cat /sys/kernel/tracing/trace
 // will show the bpf_printk() output
-
-#define MAX_LBR_ENTRIES 32
-
-struct user_regs_t {
-    u64 rip;
-    u64 rsp;
-    u64 rax;
-    u64 rbx;
-    u64 rcx;
-    u64 rdx;
-    u64 rsi;
-    u64 rdi;
-    u64 rbp;
-    u64 r8;
-    u64 r9;
-    u64 r10;
-    u64 r11;
-    u64 r12;
-    u64 r13;
-    u64 r14;
-    u64 r15;
-    u64 flags;
-    u64 cr2;
-    u64 cr2_fault;
-};
 
 #ifdef TRACE_PF_CR2
 struct trace_event_raw_page_fault_user {
@@ -53,14 +29,6 @@ struct {
 } tgid_cr2 SEC(".maps");
 #endif
 
-struct event_t {
-    u32 pid;
-    char comm[16];
-    u32 lbr_count;
-    struct user_regs_t regs;
-    struct perf_branch_entry lbr[MAX_LBR_ENTRIES];
-};
-
 // Output map (for user space)
 struct {
     __uint(type, BPF_MAP_TYPE_PERF_EVENT_ARRAY);
@@ -77,6 +45,12 @@ struct {
     __type(value, struct event_t);
 } heap SEC(".maps");
 
+inline void split_2u32(u64 in, u32* lower, u32* upper)
+{
+    *lower = (u32)in;
+    *upper = (u32)(in >> 32);
+}
+
 SEC("tracepoint/signal/signal_generate")
 int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     struct task_struct *task = NULL;
@@ -91,14 +65,33 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     if (!event)
         return 0; // Should never happen
 
-	task = bpf_get_current_task_btf();
-    event->pid = task->pid;
-	bpf_probe_read_kernel_str(&event->comm, sizeof(event->comm), &task->comm);
+    event->si_code = ctx->code;
+    event->tai = bpf_ktime_get_tai_ns();
 
-	regs = (struct pt_regs *)bpf_task_pt_regs(task);
+    split_2u32(bpf_get_current_pid_tgid(), &event->pid, &event->tgid);
 
-	if (regs) {
-		event->regs.rip = BPF_CORE_READ(regs, ip);
+    task = bpf_get_current_task_btf();
+    bpf_probe_read_kernel_str(&event->comm, sizeof(event->comm), &task->comm);
+    bpf_probe_read_kernel_str(&event->tgleader_comm, sizeof(event->tgleader_comm), &task->group_leader->comm);
+    // TODO: can the acquisition of pidns_tgid, pidns_pid be made more robust / simplified?
+    struct pid const* thread_pid = task->thread_pid;
+    // TODO: look up why this isn't allowed; it doesn't seem to be the pointer arithmetic
+    //struct upid const upid = thread_pid->numbers[pid->level];
+    event->pidns_pid = BPF_CORE_READ(thread_pid->numbers + thread_pid->level, nr);
+    struct pid const* tgid_pid = task->signal->pids[PIDTYPE_TGID];
+    // TODO: doesn't this return the pid in the NS of the tg leader, instead of the pid in the NS of the current thread?
+    // TODO: don't we need RCU here?
+    event->pidns_tgid = BPF_CORE_READ(tgid_pid->numbers + tgid_pid->level, nr);
+
+    event->regs.trapno = task->thread.trap_nr; // TODO: also copy the other fields like cr2 and error_code
+    // TODO: why BPF_CORE_READ?
+    event->regs.err = BPF_CORE_READ(task, thread.error_code); // TODO: nested CORE?
+
+    // TODO: how are these regs acquired?
+    regs = (struct pt_regs *)bpf_task_pt_regs(task);
+
+    if (regs) {
+        event->regs.rip = BPF_CORE_READ(regs, ip);
         event->regs.rsp = BPF_CORE_READ(regs, sp);
         event->regs.rax = BPF_CORE_READ(regs, ax);
         event->regs.rbx = BPF_CORE_READ(regs, bx);
@@ -116,9 +109,9 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
         event->regs.r14 = BPF_CORE_READ(regs, r14);
         event->regs.r15 = BPF_CORE_READ(regs, r15);
         event->regs.flags = BPF_CORE_READ(regs, flags);
-        
-		event->regs.cr2 = BPF_CORE_READ(task, thread.cr2);
-		event->regs.cr2_fault = -1;
+
+        event->regs.cr2 = BPF_CORE_READ(task, thread.cr2); // TODO: nested CORE?
+        event->regs.cr2_fault = -1;
 
         #ifdef TRACE_PF_CR2
         u32 tgid = task->tgid;
@@ -129,16 +122,19 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
             bpf_map_delete_elem(&tgid_cr2, &tgid);
         }
         #endif
-	}
+    }
 
+    // TODO: when is this snapshot taken? or does the CPU not do LBR in the kernel?
     long ret = bpf_get_branch_snapshot(&event->lbr, sizeof(event->lbr), 0);
-    
     if (ret > 0) {
         event->lbr_count = ret / sizeof(struct perf_branch_entry);
-        // BPF_F_CURRENT_CPU -> "index of current core should be used"
-        bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(*event));
+    } else {
+        // on VMs, LBR might not be available
+        event->lbr_count = 0;
     }
- 
+    // BPF_F_CURRENT_CPU -> "index of current core should be used"
+    bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(*event));
+
     return 0;
 }
 
