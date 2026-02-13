@@ -74,43 +74,51 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     bpf_probe_read_kernel_str(&event->comm, sizeof(event->comm), &task->comm);
     bpf_probe_read_kernel_str(&event->tgleader_comm, sizeof(event->tgleader_comm), &task->group_leader->comm);
     // TODO: can the acquisition of pidns_tgid, pidns_pid be made more robust / simplified?
-    struct pid const* thread_pid = task->thread_pid;
-    // TODO: look up why this isn't allowed; it doesn't seem to be the pointer arithmetic
-    //struct upid const upid = thread_pid->numbers[pid->level];
-    event->pidns_pid = BPF_CORE_READ(thread_pid->numbers + thread_pid->level, nr);
-    struct pid const* tgid_pid = task->signal->pids[PIDTYPE_TGID];
-    // TODO: doesn't this return the pid in the NS of the tg leader, instead of the pid in the NS of the current thread?
-    // TODO: don't we need RCU here?
-    event->pidns_tgid = BPF_CORE_READ(tgid_pid->numbers + tgid_pid->level, nr);
+    {
+		struct pid const* thread_pid = task->thread_pid;
+		unsigned int const level = thread_pid->level;
+		// thread_pid->numbers is a size-one flexible array member (type numbers[1])
+		// => cannot perform bounds-check against BTF information
+		// => need bpf_probe_read_kernel to read from indices potentially > 1
+		struct upid const* upid_inv = &thread_pid->numbers[level];
+		event->pidns_pid = BPF_CORE_READ(upid_inv, nr); // we already have implicit CO-RE, but we need the probe function call
+	}
+	{
+		struct pid const* tgid_pid = task->signal->pids[PIDTYPE_TGID];
+		unsigned int const level = tgid_pid->level;
+		struct upid const* tgid_upid_inv = &tgid_pid->numbers[level];
+		// TODO: doesn't this return the pid in the NS of the tg leader, instead of the pid in the NS of the current thread?
+		// TODO: don't we need RCU here?
+		event->pidns_tgid = BPF_CORE_READ(tgid_upid_inv, nr);
+	}
 
     event->regs.trapno = task->thread.trap_nr; // TODO: also copy the other fields like cr2 and error_code
-    // TODO: why BPF_CORE_READ?
-    event->regs.err = BPF_CORE_READ(task, thread.error_code); // TODO: nested CORE?
+    event->regs.err = task->thread.error_code;
 
     // TODO: how are these regs acquired?
     regs = (struct pt_regs *)bpf_task_pt_regs(task);
 
     if (regs) {
-        event->regs.rip = BPF_CORE_READ(regs, ip);
-        event->regs.rsp = BPF_CORE_READ(regs, sp);
-        event->regs.rax = BPF_CORE_READ(regs, ax);
-        event->regs.rbx = BPF_CORE_READ(regs, bx);
-        event->regs.rcx = BPF_CORE_READ(regs, cx);
-        event->regs.rdx = BPF_CORE_READ(regs, dx);
-        event->regs.rsi = BPF_CORE_READ(regs, si);
-        event->regs.rdi = BPF_CORE_READ(regs, di);
-        event->regs.rbp = BPF_CORE_READ(regs, bp);
-        event->regs.r8  = BPF_CORE_READ(regs, r8);
-        event->regs.r9  = BPF_CORE_READ(regs, r9);
-        event->regs.r10 = BPF_CORE_READ(regs, r10);
-        event->regs.r11 = BPF_CORE_READ(regs, r11);
-        event->regs.r12 = BPF_CORE_READ(regs, r12);
-        event->regs.r13 = BPF_CORE_READ(regs, r13);
-        event->regs.r14 = BPF_CORE_READ(regs, r14);
-        event->regs.r15 = BPF_CORE_READ(regs, r15);
-        event->regs.flags = BPF_CORE_READ(regs, flags);
+        event->regs.rip = regs->ip;
+        event->regs.rsp = regs->sp;
+        event->regs.rax = regs->ax;
+        event->regs.rbx = regs->bx;
+        event->regs.rcx = regs->cx;
+        event->regs.rdx = regs->dx;
+        event->regs.rsi = regs->si;
+        event->regs.rdi = regs->di;
+        event->regs.rbp = regs->bp;
+        event->regs.r8  = regs->r8;
+        event->regs.r9  = regs->r9;
+        event->regs.r10 = regs->r10;
+        event->regs.r11 = regs->r11;
+        event->regs.r12 = regs->r12;
+        event->regs.r13 = regs->r13;
+        event->regs.r14 = regs->r14;
+        event->regs.r15 = regs->r15;
+        event->regs.flags = regs->flags;
 
-        event->regs.cr2 = BPF_CORE_READ(task, thread.cr2); // TODO: nested CORE?
+        event->regs.cr2 = task->thread.cr2;
         event->regs.cr2_fault = -1;
 
         #ifdef TRACE_PF_CR2
