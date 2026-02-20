@@ -1,7 +1,10 @@
 #pragma once
 
-
 #define MAX_LBR_ENTRIES 32
+
+// Must be pow2
+#define MAX_USER_PF_ENTRIES 16
+
 
 struct user_regs_t {
     u64 rip;
@@ -25,12 +28,15 @@ struct user_regs_t {
     u64 trapno;
     u64 err;
     u64 cr2;
-    u64 cr2_fault;
+    u64 cr2_faults[MAX_USER_PF_ENTRIES];
+    u64 cr2_errors[MAX_USER_PF_ENTRIES];
 };
 
 // WARNING: this is for the SENDING process (e.g. pid) of the signal!
 struct event_t {
     int si_code;
+
+    u32 cr2_userpf_entry_count;
 
     u32 tgid; // the PROCESS id!
     u32 pidns_tgid; // the PROCESS id within the innermost pid namespace of the process
@@ -45,4 +51,5 @@ struct event_t {
     struct perf_branch_entry lbr[MAX_LBR_ENTRIES];
 
     u64 tai; // time atomic international
+    u64 cr2_tai[MAX_USER_PF_ENTRIES];
 };

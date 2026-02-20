@@ -69,6 +69,9 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
 
     printf("{\"cpu\":%d,", cpu);
     printf("\"tai\":%llu,", e->tai);
+    for (u32 i = 0; i < e->cr2_userpf_entry_count; i++) {
+        printf("\"cr2_tai_%u\":%llu,", i, e->cr2_tai[i]);
+    }
     printf("\"process\":{\"rootns_pid\":%d,\"ns_pid\":%d,\"comm\":\"%s\"},", e->tgid, e->pidns_tgid, e->tgleader_comm);
     printf("\"thread\":{\"rootns_tid\":%d,\"ns_tid\":%d,\"comm\":\"%s\"},", e->pid, e->pidns_pid, e->comm);
     printf("\"si_code\":%d,", e->si_code);
@@ -94,10 +97,15 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
     printf("\"trapno\":\"0x%016llx\",", e->regs.trapno);
     printf("\"err\":\"0x%016llx\",", e->regs.err);
     printf("\"cr2\":\"0x%016llx\",", e->regs.cr2);
-    if (e->regs.cr2_fault != (u64)-1)
-        printf("\"cr2_fault\":\"0x%016llx\"", e->regs.cr2_fault);
-    else
-        printf("\"cr2_fault\":null");
+    for (u32 i = 0; i < e->cr2_userpf_entry_count; i++)
+    {
+        printf("\"cr2_fault_%u\":\"0x%016llx\",", i, e->regs.cr2_faults[i]);
+        printf("\"cr2_err_%u\":\"0x%016llx\"", i, e->regs.cr2_errors[i]);
+
+        if (i + 1 != e->cr2_userpf_entry_count) {
+            printf(",");
+        }
+    }
     printf("},");
 
     printf("\"lbr\":[");
