@@ -47,6 +47,7 @@ void setup_global_lbr() {
     pe.disabled = 1;
     pe.exclude_kernel = 1;
     pe.exclude_hv = 1;
+    pe.sample_period = ((uint64_t)1) << 62; // newer kernels don't activate LBR if this is zero
 
     for_each_cpu(cpu) {
         //                                          pid     group_fs, flags
