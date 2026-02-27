@@ -30,11 +30,11 @@ struct cr2_stats {
 };
 
 struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(type, BPF_MAP_TYPE_PERCPU_HASH);
     __uint(max_entries, 1024);
     __type(key, u32);
     __type(value, struct cr2_stats);
-} tgid_cr2 SEC(".maps");
+} pid_cr2 SEC(".maps");
 
 inline void cr2stats_init(struct cr2_stats* stats) {
     stats->head = 0;
@@ -167,8 +167,8 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
 
     event->pf_count = 0;
     #ifdef TRACE_PF_CR2
-    u32 tgid = task->tgid;
-    struct cr2_stats *cr2stats = bpf_map_lookup_elem(&tgid_cr2, &tgid);
+    u32 pid = task->pid;
+    struct cr2_stats *cr2stats = bpf_map_lookup_elem(&pid_cr2, &pid);
 
     if (cr2stats) {
         for (u32 i = 0; i < cr2stats->count && i < MAX_USER_PF_ENTRIES; i++) {
@@ -182,7 +182,7 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
             }
         }
 
-        bpf_map_delete_elem(&tgid_cr2, &tgid);
+        bpf_map_delete_elem(&pid_cr2, &pid);
     }
     #endif
 
@@ -204,14 +204,14 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
 SEC("tracepoint/exceptions/page_fault_user")
 int trace_page_fault(struct trace_event_raw_page_fault_user *ctx) {
     struct cr2_stat stat;
-    u32 tgid;
+    u32 pid;
 
     stat.cr2 = ctx->address;
     stat.err = ctx->error_code;
     stat.tai = bpf_ktime_get_tai_ns();
-    tgid = bpf_get_current_pid_tgid() >> 32;
+    pid = (u32)bpf_get_current_pid_tgid();
 
-    struct cr2_stats *cr2stats = bpf_map_lookup_elem(&tgid_cr2, &tgid);
+    struct cr2_stats *cr2stats = bpf_map_lookup_elem(&pid_cr2, &pid);
     if (cr2stats) {
         cr2stats_push(cr2stats, &stat);
     } else {
@@ -219,7 +219,7 @@ int trace_page_fault(struct trace_event_raw_page_fault_user *ctx) {
         cr2stats_init(&new_stats);
         cr2stats_push(&new_stats, &stat);
 
-        bpf_map_update_elem(&tgid_cr2, &tgid, &new_stats, BPF_ANY);
+        bpf_map_update_elem(&pid_cr2, &pid, &new_stats, BPF_ANY);
     }
 
     return 0;

@@ -3,9 +3,7 @@
 #define MAX_LBR_ENTRIES 32
 #define MAX_USER_PF_ENTRIES 16
 
-// By default is commented: a lot of #PF events are hit
-// so enable only if it is acceptable.
-// #define TRACE_PF_CR2
+#define TRACE_PF_CR2
 
 struct page_fault_info_t {
     u64 cr2;
