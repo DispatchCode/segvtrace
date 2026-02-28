@@ -94,12 +94,21 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
     printf("\"flags\":\"0x%016llx\",", e->regs.flags);
     printf("\"trapno\":\"0x%016llx\",", e->regs.trapno);
     printf("\"err\":\"0x%016llx\",", e->regs.err);
-    printf("\"cr2\":\"0x%016llx\",", e->regs.cr2);
-    if (e->regs.cr2_fault != (u64)-1)
-        printf("\"cr2_fault\":\"0x%016llx\"", e->regs.cr2_fault);
-    else
-        printf("\"cr2_fault\":null");
+    printf("\"cr2\":\"0x%016llx\"", e->regs.cr2);
     printf("},");
+
+    #ifdef TRACE_PF_CR2
+    printf("\"page_faults\": [");
+    for_each(i, e->pf_count)
+    {
+        printf("{\"cr2\":\"0x%016llx\",\"err\":\"0x%016llx\",\"tai\":%llu}", e->pf[i].cr2, e->pf[i].err, e->pf[i].tai);
+
+        if (i + 1 != e->pf_count) {
+            printf(",");
+        }
+    }
+    printf("],");
+    #endif
 
     printf("\"lbr\":[");
     int lbr_limit = (e->lbr_count < MAX_LBR_ENTRIES) ? e->lbr_count : MAX_LBR_ENTRIES;
