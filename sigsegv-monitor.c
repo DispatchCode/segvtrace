@@ -121,6 +121,8 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
                 (unsigned long long)e->lbr[i].to);
     }
     printf("]}\n");
+
+    fflush(stdout);
 }
 
 void sigint_handler(int dummy) {
