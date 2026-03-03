@@ -166,8 +166,8 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
     }
 
     event->pf_count = 0;
-    #ifdef TRACE_PF_CR2
-    u32 pid = task->pid;
+#ifdef TRACE_PF_CR2
+    u32 const pid = task->pid;
     struct cr2_stats *cr2stats = bpf_map_lookup_elem(&pid_cr2, &pid);
 
     if (cr2stats) {
@@ -196,7 +196,7 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
 
         bpf_map_delete_elem(&pid_cr2, &pid);
     }
-    #endif
+#endif
 
     // TODO: when is this snapshot taken? or does the CPU not do LBR in the kernel?
     long ret = bpf_get_branch_snapshot(&event->lbr, sizeof(event->lbr), 0);
@@ -215,13 +215,12 @@ int trace_sigsegv(struct trace_event_raw_signal_generate *ctx) {
 #ifdef TRACE_PF_CR2
 SEC("tracepoint/exceptions/page_fault_user")
 int trace_page_fault(struct trace_event_raw_page_fault_user *ctx) {
-    struct cr2_stat stat;
-    u32 pid;
-
-    stat.cr2 = ctx->address;
-    stat.err = ctx->error_code;
-    stat.tai = bpf_ktime_get_tai_ns();
-    pid = (u32)bpf_get_current_pid_tgid();
+    struct cr2_stat stat = {
+        .cr2 = ctx->address,
+        .err = ctx->error_code,
+        .tai = bpf_ktime_get_tai_ns()
+    };
+    u32 const pid = (u32)bpf_get_current_pid_tgid();
 
     struct cr2_stats *cr2stats = bpf_map_lookup_elem(&pid_cr2, &pid);
     if (cr2stats) {
