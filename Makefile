@@ -15,6 +15,7 @@ endif
 # Output executable name
 APP = sigsegv_monitor
 SAMPLE = sample_segfault
+LINES2FILE = lines2file
 
 # Source files
 BPF_SRC = sigsegv-monitor.bpf.c
@@ -36,12 +37,13 @@ LIBS := -lbpf -lelf -lz
 
 .PHONY: all clean sample test
 
-all: $(APP) $(SAMPLE)
+all: $(APP) $(SAMPLE) $(LINES2FILE)
 
 sample: $(SAMPLE)
 
 test: $(SAMPLE)
 	sudo python3 verify_monitor.py
+	python3 test_lines2file.py
 
 .DELETE_ON_ERROR:
 
@@ -65,6 +67,10 @@ $(SAMPLE): sample_segfault.c
 	@echo "  CC      $@"
 	$(CLANG) -g -O0 -Wall $< -o $@
 
+$(LINES2FILE): lines2file.c
+	@echo "  CC      $@"
+	$(CLANG) -Wall -Wextra -pedantic -std=c99 -O2 -o $@ $<
+
 clean:
 	@echo "  CLEAN"
-	rm -f $(APP) $(BPF_OBJ) $(SKEL_OBJ) $(VMLINUX) $(SAMPLE)
+	rm -f $(APP) $(BPF_OBJ) $(SKEL_OBJ) $(VMLINUX) $(SAMPLE) $(LINES2FILE)

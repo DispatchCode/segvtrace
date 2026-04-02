@@ -31,7 +31,7 @@ struct cr2_stats {
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1024);
+    __uint(max_entries, 10*1024);
     __type(key, u32);
     __type(value, struct cr2_stats);
 } pid_cr2 SEC(".maps");

@@ -4,3 +4,4 @@ vmlinux.h
 sigsegv_monitor
 sample_segfault
 __pycache__
+lines2file
