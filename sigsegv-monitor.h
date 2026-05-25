@@ -7,6 +7,11 @@
 // #define TRACE_PF_CR2_INCREMENTAL
 // #define TRACE_KERNEL_SPACE_BRANCHES
 
+#define PROLOGUE_SIZE 42
+#define DISASSEMBLY_LEN 64
+
+#define ENABLE_DISASSEMBLY
+
 struct page_fault_info_t {
     u64 cr2;
     u64 err;
@@ -58,4 +63,9 @@ struct event_t {
 
     u32 pf_count;
     struct page_fault_info_t pf[MAX_USER_PF_ENTRIES];
+
+#ifdef ENABLE_DISASSEMBLY
+	u8 offset; // offset of the crashing code
+	u8 opcodes[DISASSEMBLY_LEN]; // bytes around RIP of the crashed user space
+#endif
 };

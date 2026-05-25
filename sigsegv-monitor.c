@@ -16,6 +16,7 @@
 #include <linux/types.h>
 typedef __u32 u32;
 typedef __u64 u64;
+typedef __u8 u8;
 #include "sigsegv-monitor.h"
 
 #define MAX_LBR_ENTRIES 32
@@ -144,7 +145,20 @@ void handle_event(void *ctx, int cpu, void *data, __u32 data_sz) {
                 (unsigned long long)e->lbr[i].from,
                 (unsigned long long)e->lbr[i].to);
     }
-    printf("]}\n");
+    printf("]");
+
+    #ifdef ENABLE_DISASSEMBLY
+    printf(",\"disassembly\":{\"opcodes:\"");
+    int op_len = sizeof(e->opcodes);
+    for_each(i, op_len) {
+        printf("%02x", e->opcodes[i]);
+        if (i < op_len-1) printf(" ");
+    }
+
+    printf("\",\"offset\":\"0x%02x\"}", e->offset);
+    #endif
+
+    printf("}\n");
 
     fflush(stdout);
 }
