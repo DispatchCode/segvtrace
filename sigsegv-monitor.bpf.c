@@ -206,6 +206,19 @@ int trace_signal(struct trace_event_raw_signal_generate *ctx) {
         // on VMs, LBR might not be available
         event->lbr_count = 0;
     }
+
+#ifdef ENABLE_DISASSEMBLY
+     // store the offset of the instr. inside the opcodes
+    u64 start_addr = event->lbr[0].to;
+    u64 opcode_count = event->regs.rip - event->lbr[0].to;
+    event->offset = event->regs.rip - event->lbr[0].to;
+
+    if (opcode_count > sizeof(event->opcodes))
+        start_addr = event->regs.rip - PROLOGUE_SIZE;
+
+    u64 unused = bpf_probe_read_user(&event->opcodes, sizeof(event->opcodes), (const void*) start_addr);
+#endif
+
     // BPF_F_CURRENT_CPU -> "index of current core should be used"
     bpf_perf_event_output(ctx, &events, BPF_F_CURRENT_CPU, event, sizeof(*event));
 
